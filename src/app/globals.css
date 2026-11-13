@@ -238,37 +238,24 @@
 }
 
 /* Give catalogue photos a prominent, consistent frame. */
+.product-card{
+  border:1px solid #dce8dc;
+  background:#fff;
+}
 .product-card .product-image{
   height:auto;
   min-height:0;
   aspect-ratio:1;
   max-height:290px;
   padding:0;
-  background:#f6f3e9;
+  background:#fff;
 }
 .product-card .product-image>img.catalogue-product-photo{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
   object-position:center;
-  transition:transform .22s ease;
-}
-.product-card .product-image>img.catalogue-product-photo.pending{
-  object-fit:contain;
-}
-.product-card .product-image>img.catalogue-product-photo.portrait,
-.product-card .product-image>img.catalogue-product-photo.landscape{
-  object-fit:contain;
-  transform:scale(1);
-  padding:4px;
-}
-.product-card .product-image>img.catalogue-product-photo.square{
-  transform:scale(1.14);
-}
-@media(hover:hover){
-  .product-card:hover .product-image>img.catalogue-product-photo.square{
-    transform:scale(1.2);
-  }
+  transform:scale(.72);
 }
 @media(max-width:700px){
   .product-card .product-image{max-height:none}
