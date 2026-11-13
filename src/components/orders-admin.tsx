@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowRight, CalendarDays, ClipboardList, FolderOpen, KeyRound, Package, Pencil, Plus, Printer, Search, Share2, ShieldCheck, ShoppingBag, Trash2, UsersRound } from "lucide-react";
 import type { AppData, AppUser, Category, Order, OrderStatus, Product, SessionUser } from "@/lib/types";
 import { statusLabels } from "@/lib/types";
@@ -12,7 +12,11 @@ export type AdminTab = "products" | "categories" | "users" | "account";
 
 export function OrdersView({ data, mutate, newOrder, editOrder, initialOrderId }: { data: AppData; mutate: Mutate; newOrder: () => void; editOrder: (order: Order) => void; initialOrderId?: number | null }) {
   const [search, setSearch] = useState(""); const [status, setStatus] = useState("all"); const [date, setDate] = useState(""); const [selectedId, setSelectedId] = useState<number | null>(initialOrderId || null);
-  useEffect(() => { if (initialOrderId) setSelectedId(initialOrderId); }, [initialOrderId]);
+  const [trackedOrderId, setTrackedOrderId] = useState<number | null>(initialOrderId ?? null);
+  if ((initialOrderId ?? null) !== trackedOrderId) {
+    setTrackedOrderId(initialOrderId ?? null);
+    if (initialOrderId) setSelectedId(initialOrderId);
+  }
   const filtered = data.orders.filter((order) => `${order.orderNumber} ${order.clientName}`.toLowerCase().includes(search.toLowerCase()) && (status === "all" || order.status === status) && (!date || order.createdAt.slice(0, 10) === date));
   const selected = data.orders.find((order) => order.id === selectedId);
   return <div className="page-content"><div className="page-heading"><div><div className="heading-overline"><span/> SUIVI DE VOTRE ACTIVITÉ</div><h1>Commandes</h1><p>Créez, modifiez et suivez toutes vos commandes.</p></div><button className="button primary" onClick={newOrder}><Plus size={18}/> Nouvelle commande</button></div>
@@ -114,7 +118,12 @@ function downloadInvoice(blob: Blob, fileName: string) {
 export function AdminView({ data, mutate, navigate, user, authEnabled = false, initialTab = "products", tabRequest = 0 }: { data: AppData; mutate: Mutate; navigate: (view: string) => void; user: SessionUser; authEnabled?: boolean; initialTab?: AdminTab; tabRequest?: number }) {
   const [tab, setTab] = useState<AdminTab>(initialTab); const [search, setSearch] = useState("");
   const { confirm, dialog } = useConfirm();
-  useEffect(() => { setTab(!authEnabled && (initialTab === "account" || initialTab === "users") ? "products" : initialTab); }, [initialTab, tabRequest, authEnabled]);
+  const resolvedTab: AdminTab = !authEnabled && (initialTab === "account" || initialTab === "users") ? "products" : initialTab;
+  const [tabSync, setTabSync] = useState({ initialTab, tabRequest, authEnabled });
+  if (tabSync.initialTab !== initialTab || tabSync.tabRequest !== tabRequest || tabSync.authEnabled !== authEnabled) {
+    setTabSync({ initialTab, tabRequest, authEnabled });
+    setTab(resolvedTab);
+  }
   const [productForm, setProductForm] = useState<Product | "new" | null>(null); const [categoryForm, setCategoryForm] = useState<Category | "new" | null>(null); const [userForm, setUserForm] = useState<AppUser | "new" | null>(null);
   const isAdmin = authEnabled && user.role === "admin"; const roleLabel = (role: string) => role === "admin" ? "Administrateur" : "Commercial";
   const filtered = data.products.filter((p) => `${p.name} ${p.sku} ${p.categoryName}`.toLowerCase().includes(search.toLowerCase()));

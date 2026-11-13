@@ -236,3 +236,79 @@
   .invoice-actions{display:grid;grid-template-columns:1fr;gap:8px}
   .invoice-actions .button{width:100%;white-space:normal}
 }
+
+/* Give catalogue photos a prominent, consistent frame. */
+.product-card .product-image{
+  height:auto;
+  min-height:0;
+  aspect-ratio:1;
+  max-height:290px;
+  padding:0;
+  background:#f6f3e9;
+}
+.product-card .product-image>img.catalogue-product-photo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center;
+  transition:transform .22s ease;
+}
+.product-card .product-image>img.catalogue-product-photo.pending{
+  object-fit:contain;
+}
+.product-card .product-image>img.catalogue-product-photo.portrait,
+.product-card .product-image>img.catalogue-product-photo.landscape{
+  object-fit:contain;
+  transform:scale(1);
+  padding:4px;
+}
+.product-card .product-image>img.catalogue-product-photo.square{
+  transform:scale(1.14);
+}
+@media(hover:hover){
+  .product-card:hover .product-image>img.catalogue-product-photo.square{
+    transform:scale(1.2);
+  }
+}
+@media(max-width:700px){
+  .product-card .product-image{max-height:none}
+}
+
+/* Use the supplied transparent Fakeya mark alongside the existing Kasa name. */
+.brand{gap:8px}
+.brand-mark{
+  width:58px;
+  height:32px;
+  flex:none;
+  background:url("/images/fakeya-logo-transparent.png") center/contain no-repeat;
+  border-radius:0;
+  transform:none;
+}
+.brand-mark svg{display:none}
+.mobile-logo svg{
+  width:44px;
+  height:26px;
+  box-sizing:border-box;
+  padding:0;
+  background:url("/images/fakeya-logo-transparent.png") center/contain no-repeat;
+  border-radius:0;
+  color:transparent;
+  stroke:transparent;
+}
+.login-logo .logo-mark{
+  width:68px;
+  height:36px;
+  flex:none;
+  background:url("/images/fakeya-logo-transparent.png") center/contain no-repeat;
+  border-radius:0;
+  color:transparent;
+}
+.login-logo .logo-mark svg,
+.session-gate .brand-mark svg{display:none}
+.session-gate .brand-mark{
+  width:88px;
+  height:46px;
+  background:url("/images/fakeya-logo-transparent.png") center/contain no-repeat;
+  border-radius:0;
+  transform:none;
+}

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { AlertCircle, Check, ImagePlus, KeyRound, Plus, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ImagePlus, KeyRound, LockKeyhole, Plus, Trash2, X } from "lucide-react";
 import type { AppUser, Category, Client, OrderStatus, Product } from "@/lib/types";
 import { statusLabels } from "@/lib/types";
 import { priceDeltaPercent, TAX_RATE_OPTIONS, taxCentsFromHt, taxRateLabel, toCents } from "@/lib/packaging";
 
 export type Mutate = (entity: string, action: string, payload: unknown) => Promise<{ id?: number; orderNumber?: string }>;
+export const ACCESS_PIN = "1234";
 export const CURRENCY = "€";
 export function money(value: number | string, decimals = 2) {
   return `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(value) || 0)} ${CURRENCY}`;
@@ -40,6 +41,33 @@ export function useConfirm() {
   const confirm = (options: { title?: string; message: ReactNode; confirmLabel?: string }) => new Promise<boolean>((resolve) => setRequest({ title: options.title || "Confirmer la suppression", message: options.message, confirmLabel: options.confirmLabel || "Supprimer", resolve }));
   const dialog = request ? <ConfirmDialog title={request.title} message={request.message} confirmLabel={request.confirmLabel} onCancel={() => { request.resolve(false); setRequest(null); }} onConfirm={() => { request.resolve(true); setRequest(null); }}/> : null;
   return { confirm, dialog };
+}
+/** Requests the shared four-digit PIN and resolves false when the user cancels. */
+export function usePin() {
+  const [request, setRequest] = useState<null | { title: string; message: string; code: string; error: string; resolve: (value: boolean) => void }>(null);
+  const requestPin = (options?: { title?: string; message?: string }) => new Promise<boolean>((resolve) => setRequest({
+    title: options?.title || "Autorisation requise",
+    message: options?.message || "Cette action nécessite le code PIN.",
+    code: "",
+    error: "",
+    resolve,
+  }));
+  const cancel = () => {
+    request?.resolve(false);
+    setRequest(null);
+  };
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!request) return;
+    if (request.code !== ACCESS_PIN) {
+      setRequest({ ...request, code: "", error: "Code incorrect. Vérifiez les 4 chiffres et réessayez." });
+      return;
+    }
+    request.resolve(true);
+    setRequest(null);
+  }
+  const dialog = request ? <Modal title={request.title} subtitle="Saisissez le code à 4 chiffres pour continuer." onClose={cancel}><form className="modal-form access-code-form" onSubmit={submit}><div className="access-code-intro"><span className="access-code-icon"><LockKeyhole size={22}/></span><p>{request.message}</p></div><label className="access-code-label">Code PIN<input type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" autoFocus maxLength={4} value={request.code} onChange={(event) => setRequest((current) => current ? { ...current, code: event.target.value.replace(/\D/g, "").slice(0, 4), error: "" } : current)} placeholder="••••" aria-label="Code PIN" aria-invalid={Boolean(request.error)} /></label>{request.error && <p className="form-error" role="alert">{request.error}</p>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancel}>Annuler</button><button type="submit" className="button primary" disabled={request.code.length !== 4}>Continuer <Check size={16}/></button></div></form></Modal> : null;
+  return { requestPin, dialog };
 }
 export function EmptyState({ icon, title, text, action }: { icon: ReactNode; title: string; text: string; action?: ReactNode }) {
   return <div className="empty-state"><div className="empty-icon">{icon}</div><strong>{title}</strong><p>{text}</p>{action}</div>;

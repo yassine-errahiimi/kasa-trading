@@ -7,7 +7,7 @@ import Dashboard from "./dashboard";
 import { CatalogueView, ClientsView, type NewOrderOptions } from "./clients-catalogue";
 import { type AdminTab, AdminView, OrdersView } from "./orders-admin";
 import OrderWorkflow from "./order-workflow";
-import { initials, Modal, type Mutate } from "./shared";
+import { ACCESS_PIN, initials, Modal, type Mutate, usePin } from "./shared";
 import { apiFetch, goToLogin, setToken } from "@/lib/client-auth";
 
 type View = "dashboard" | "clients" | "catalogue" | "commandes" | "administration";
@@ -32,6 +32,7 @@ export default function AppShell({ initialData, user, authEnabled = false }: { i
   const [adminRequest, setAdminRequest] = useState<{ tab: AdminTab; n: number }>({ tab: "products", n: 0 });
   const [mustChange, setMustChange] = useState(user.mustChangePassword);
   const initialLocationHandled = useRef(false);
+  const { requestPin, dialog: pinDialog } = usePin();
   useEffect(() => {
     const read = () => {
       const value = new URLSearchParams(window.location.search).get("view");
@@ -78,7 +79,7 @@ export default function AppShell({ initialData, user, authEnabled = false }: { i
   }
   function submitAccessCode(event: { preventDefault: () => void }) {
     event.preventDefault();
-    if (accessCode !== "1234" || !protectedView) {
+    if (accessCode !== ACCESS_PIN || !protectedView) {
       setAccessError("Code incorrect. Vérifiez les 4 chiffres et réessayez.");
       setAccessCode("");
       return;
@@ -90,6 +91,15 @@ export default function AppShell({ initialData, user, authEnabled = false }: { i
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   const mutate: Mutate = async (entity, action, payload) => {
+    const values = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const editsExistingRecord = action === "save" && typeof values.id === "number";
+    const requiresPin = action === "delete" || editsExistingRecord || action === "status" || (entity === "account" && action === "password");
+    if (requiresPin) {
+      const labels: Record<string, string> = { client: "client", product: "produit", category: "catégorie", order: "commande", user: "utilisateur", account: "compte" };
+      const actionName = action === "delete" ? "supprimer" : "modifier";
+      const allowed = await requestPin({ message: `Entrez le code PIN pour ${actionName} ${labels[entity] || "cet élément"}.` });
+      if (!allowed) throw new Error("Action annulée.");
+    }
     const response = await apiFetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, action, payload }) });
     const result = await response.json();
     if (response.status === 401) { goToLogin(); throw new Error("Connexion requise."); }
@@ -113,5 +123,5 @@ export default function AppShell({ initialData, user, authEnabled = false }: { i
       {authEnabled && mustChange && <div className="security-banner"><ShieldAlert size={17}/><span>Vous utilisez encore le mot de passe initial. Pensez à le modifier pour sécuriser votre compte.</span><button onClick={openAccount}>Modifier maintenant</button></div>}
       <main>{view === "dashboard" && <Dashboard data={data} navigate={navigate} newOrder={() => newOrder()} openOrder={openOrder}/>} {view === "clients" && <ClientsView data={data} mutate={mutate} newOrder={newOrder} openOrder={openOrder}/>} {view === "catalogue" && <CatalogueView data={data} mutate={mutate} newOrder={newOrder}/>} {view === "commandes" && <OrdersView data={data} mutate={mutate} newOrder={() => newOrder()} editOrder={editOrder} initialOrderId={focusOrderId}/>} {view === "administration" && <AdminView data={data} mutate={mutate} navigate={navigate} user={user} authEnabled={authEnabled} initialTab={adminRequest.tab} tabRequest={adminRequest.n}/>}</main>
     </div><nav className="mobile-nav" aria-label="Navigation principale">{nav.map((item) => <button key={item.view} className={view === item.view ? "active" : ""} onClick={() => navigate(item.view)}><item.icon size={20}/><span>{item.view === "dashboard" ? "Accueil" : item.label}</span></button>)}<button className={view === "administration" ? "active" : ""} onClick={() => navigate("administration")}><Menu size={20}/><span>Menu</span></button></nav>
-    {protectedView && <Modal title={`Accès à ${labels[protectedView]}`} subtitle="Saisissez le code à 4 chiffres pour continuer." onClose={cancelProtectedAccess}><form className="modal-form access-code-form" onSubmit={submitAccessCode}><div className="access-code-intro"><span className="access-code-icon"><LockKeyhole size={22}/></span><p>Cette page est protégée par un code d’accès.</p></div><label className="access-code-label">Code d’accès<input type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" autoFocus maxLength={4} value={accessCode} onChange={(event) => { setAccessCode(event.target.value.replace(/\D/g, "").slice(0, 4)); setAccessError(""); }} placeholder="••••" aria-label="Code d’accès" aria-invalid={Boolean(accessError)} /></label>{accessError && <p className="form-error" role="alert">{accessError}</p>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancelProtectedAccess}>Annuler</button><button type="submit" className="button primary" disabled={accessCode.length !== 4}>Accéder <ArrowRight size={16}/></button></div></form></Modal>} {flow && <OrderWorkflow key={`${flow.editing?.id || "new"}-${flow.clientId || ""}-${flow.productId || ""}`} data={data} mutate={mutate} editing={flow.editing} initialClientId={flow.clientId} initialProductId={flow.productId} pricesMasked={pricesMasked} onTogglePrices={() => setPricesMasked((value) => !value)} onClose={() => setFlow(null)} onFinish={(id) => { setFlow(null); openOrder(id); }}/>} {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={() => setToast("")} aria-label="Fermer"><X size={15}/></button></div>}</div>;
+    {protectedView && <Modal title={`Accès à ${labels[protectedView]}`} subtitle="Saisissez le code à 4 chiffres pour continuer." onClose={cancelProtectedAccess}><form className="modal-form access-code-form" onSubmit={submitAccessCode}><div className="access-code-intro"><span className="access-code-icon"><LockKeyhole size={22}/></span><p>Cette page est protégée par un code d’accès.</p></div><label className="access-code-label">Code d’accès<input type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" autoFocus maxLength={4} value={accessCode} onChange={(event) => { setAccessCode(event.target.value.replace(/\D/g, "").slice(0, 4)); setAccessError(""); }} placeholder="••••" aria-label="Code d’accès" aria-invalid={Boolean(accessError)} /></label>{accessError && <p className="form-error" role="alert">{accessError}</p>}<div className="modal-actions"><button type="button" className="button secondary" onClick={cancelProtectedAccess}>Annuler</button><button type="submit" className="button primary" disabled={accessCode.length !== 4}>Accéder <ArrowRight size={16}/></button></div></form></Modal>}{pinDialog} {flow && <OrderWorkflow key={`${flow.editing?.id || "new"}-${flow.clientId || ""}-${flow.productId || ""}`} data={data} mutate={mutate} editing={flow.editing} initialClientId={flow.clientId} initialProductId={flow.productId} pricesMasked={pricesMasked} onTogglePrices={() => setPricesMasked((value) => !value)} onClose={() => setFlow(null)} onFinish={(id) => { setFlow(null); openOrder(id); }}/>} {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={() => setToast("")} aria-label="Fermer"><X size={15}/></button></div>}</div>;
 }

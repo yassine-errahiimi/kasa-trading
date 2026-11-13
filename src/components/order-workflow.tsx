@@ -20,15 +20,16 @@ function generatedProductImage(product: Product) {
 
 function ProductPhoto({ product, compact = false }: { product: Product; compact?: boolean }) {
   const fallback = generatedProductImage(product);
-  const [src, setSrc] = useState<string | null>(product.imageUrl || fallback);
+  const initialSrc = product.imageUrl || fallback;
+  const [src, setSrc] = useState<string | null>(initialSrc);
   const [usingFallback, setUsingFallback] = useState(!product.imageUrl);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setSrc(product.imageUrl || fallback);
+  const [syncedSource, setSyncedSource] = useState(initialSrc);
+  if (syncedSource !== initialSrc) {
+    setSyncedSource(initialSrc);
+    setSrc(initialSrc);
     setUsingFallback(!product.imageUrl);
-  }, [product.imageUrl, fallback]);
-  useEffect(() => setMounted(true), []);
+  }
   useEffect(() => {
     if (!previewOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -49,7 +50,7 @@ function ProductPhoto({ product, compact = false }: { product: Product; compact?
           }}/>
         : <Package size={compact ? 19 : 23}/>}
     </button>
-    {mounted && previewOpen && src && createPortal(
+    {previewOpen && src && createPortal(
       <div className="product-image-viewer" role="dialog" aria-modal="true" aria-label={`Image du produit ${product.name}`} onClick={(event) => { if (event.target === event.currentTarget) setPreviewOpen(false); }}>
         <button type="button" className="product-image-viewer-close" aria-label="Fermer l’image" autoFocus onClick={() => setPreviewOpen(false)}><X size={23}/></button>
         <img src={src} alt={product.name}/>
@@ -63,7 +64,11 @@ function ProductPhoto({ product, compact = false }: { product: Product; compact?
 /** Large touch-friendly integer stepper (cartons, sachets). */
 function IntControl({ value, label, max, onChange }: { value: number; label: string; max: number; onChange: (value: number) => void }) {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => { setDraft(String(value)); }, [value]);
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setDraft(String(value));
+  }
   function commit() {
     if (draft === "") { onChange(0); setDraft("0"); return; }
     if (!/^\d+$/.test(draft)) { setDraft(String(value)); return; }
