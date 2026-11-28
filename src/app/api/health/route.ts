@@ -18,7 +18,7 @@ export async function GET() {
       ok: true,
       database: {
         name: row?.database,
-        provider: host && /\.neon\.(tech|build)$/i.test(host) ? "neon" : "postgres",
+        provider: "postgres",
         driver: databaseDriver,
         pooled: host?.includes("-pooler") ?? false,
         version: row?.version?.split(" on ")[0],

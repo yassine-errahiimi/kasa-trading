@@ -1,70 +1,38 @@
-import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { Pool as NodePostgresPool } from "pg";
-import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
-import { parseEnv } from "@neon/env";
-import neonProject from "../../neon";
+import { Pool } from "pg";
 
 /**
  * Database access for the whole app (Drizzle on top of Postgres).
  *
- * `neon deploy` / `neon env pull` provide:
- *   DATABASE_URL          -> pooled Neon endpoint (-pooler): used by the running app
- *   DATABASE_URL_UNPOOLED -> direct endpoint: used by drizzle-kit for schema changes
- *
- * Driver selection:
- *   - Neon hosts  -> @neondatabase/serverless (Neon's own driver). Simple queries go over
- *     low-latency HTTP (same transport as `neon(process.env.DATABASE_URL)`), while
- *     transactions — which the order workflow relies on — run over WebSocket.
- *     The plain HTTP `neon()` client alone cannot run `db.transaction()`.
- *   - Any other Postgres (local development) -> node-postgres.
+ * `DATABASE_URL` is read server-side only, from `.env` (never prefixed `NEXT_PUBLIC_`).
+ * Use the pooled endpoint of your provider if it exposes one.
  */
 export type Database = PgDatabase<PgQueryResultHKT>;
 
-const { postgres } = parseEnv(neonProject, ["DATABASE_URL"]);
-const databaseUrl = postgres.databaseUrl;
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
-export function isNeonUrl(url: string) {
-  try { return /\.neon\.(tech|build)$/i.test(new URL(url).hostname); } catch { return false; }
-}
+export const databaseDriver = "node-postgres" as const;
 
-export const databaseDriver: "neon-serverless" | "node-postgres" = isNeonUrl(databaseUrl) ? "neon-serverless" : "node-postgres";
-
-const poolOptions = {
+const pool = new Pool({
   connectionString: databaseUrl,
-  // Long-running Node server: a small pool is enough. Neon computes scale to zero when idle,
-  // so recycle idle clients quickly and leave time for a cold-start resume before failing.
+  // Long-running Node server: a small pool is enough.
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 15_000,
-};
+  keepAlive: true,
+});
 
-function onIdleClientError(error: Error) {
-  // An idle client can be dropped when the compute suspends; without a handler
-  // node-postgres-compatible pools surface that as an uncaught error and crash the process.
+pool.on("error", (error) => {
+  // An idle client can be dropped by the server; without a handler node-postgres
+  // surfaces that as an uncaught error and crashes the process.
   console.warn("Idle database client error (connection will be re-established):", error.message);
-}
-
-function createDatabase(): Database {
-  if (databaseDriver === "neon-serverless") {
-    // Older Node versions have no global WebSocket: fall back to `ws`.
-    if (typeof globalThis.WebSocket === "undefined") neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
-    // One-shot Pool.query() calls use HTTP fetch; transactions keep a WebSocket connection.
-    neonConfig.poolQueryViaFetch = true;
-    const pool = new NeonPool(poolOptions);
-    pool.on("error", onIdleClientError);
-    return drizzleNeon(pool);
-  }
-  const pool = new NodePostgresPool({ ...poolOptions, keepAlive: true });
-  pool.on("error", onIdleClientError);
-  return drizzleNodePostgres(pool);
-}
+});
 
 const globalForDb = globalThis as typeof globalThis & { __kasaDatabase?: Database };
 
-export const db: Database = globalForDb.__kasaDatabase ?? createDatabase();
+export const db: Database = globalForDb.__kasaDatabase ?? drizzle(pool);
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__kasaDatabase = db;

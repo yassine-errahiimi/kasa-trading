@@ -52,7 +52,7 @@ export const orderItems = pgTable("order_items", {
   productName: varchar("product_name", { length: 160 }).notNull(),
   unit: varchar("unit", { length: 30 }).notNull().default(""),
   cartonQuantity: integer("carton_quantity").notNull().default(0),
-  // Whole sachets, stored as numeric(12,2) to match the shared Neon schema (the app always writes integers).
+  // Whole sachets, stored as numeric(12,2) to match the shared database schema (the app always writes integers).
   additionalSachets: numeric("additional_sachets", { precision: 12, scale: 2 }).notNull(),
   /** Historical snapshots: packaging and prices as they were when the line was saved. */
   sachetsPerCartonAtOrder: integer("sachets_per_carton").notNull().default(1),

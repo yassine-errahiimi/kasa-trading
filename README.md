@@ -37,14 +37,13 @@ npm run dev
 
 Au premier accès à une base vide, un catalogue de démonstration (catégories et produits) est créé une seule fois. Aucun client ni commande n’est créé automatiquement. Pour démarrer sans produits de démonstration, définir `KASA_SEED_DEMO=false` **avant** le premier accès. Les produits de démonstration peuvent être modifiés ou supprimés depuis le Catalogue ou l’Administration.
 
-## Base de données Neon
+## Base de données
 
-L’application est connectée au projet Neon `restless-dew-09256450` (branche `production`, base `neondb`) ; le lien est dans `.neon` et les services dans `neon.ts`.
+L’application utilise PostgreSQL via Drizzle (`node-postgres`).
 
-- Variables (fichier `.env`, **jamais** préfixées `NEXT_PUBLIC_`, lues uniquement côté serveur dans `src/db/index.ts`) : `DATABASE_URL` = endpoint **poolé** (`-pooler`) utilisé par l’application ; `DATABASE_URL_UNPOOLED` = endpoint **direct** (même URL sans `-pooler`) utilisé par `drizzle-kit`. `neon env pull` peut les rafraîchir une fois le CLI authentifié (`neon login` ou `NEON_API_KEY`).
-- Pilote : sur un hôte Neon, `@neondatabase/serverless` (requêtes simples en HTTP, transactions en WebSocket) ; sur un Postgres classique, `node-postgres`. Choix automatique, Drizzle reste l’unique couche d’accès. `GET /api/health` indique le fournisseur, le pilote, l’endpoint poolé ou non et la latence (sans secret).
-- **Branche partagée** : une autre application (`application_name = kasa-trading`) utilise la même branche. Le schéma Drizzle de ce projet reflète exactement les tables partagées ; seules trois colonnes additives avec valeur par défaut ont été ajoutées (`products.unit`, `order_items.unit`, `users.must_change_password`), voir `drizzle/0002_shared_schema_alignment.sql`. `npx drizzle-kit push` doit répondre « No changes detected » : ne jamais utiliser `--force` sur cette branche sans vérifier les instructions générées (`--strict --verbose`).
-- Nouvelle base vide : `npx drizzle-kit push` (URL directe) puis démarrer l’application ; le catalogue de démonstration est créé au premier accès si la base est vide.
+- Variable (fichier `.env`, **jamais** préfixée `NEXT_PUBLIC_`, lue uniquement côté serveur dans `src/db/index.ts`) : `DATABASE_URL` = chaîne de connexion PostgreSQL (utiliser l’endpoint **poolé** de l’hébergeur s’il en expose un). `GET /api/health` indique le nom de la base, le pilote, l’endpoint poolé ou non et la latence (sans secret).
+- **Schéma partagé** : une autre application (`application_name = kasa-trading`) utilise la même base. Le schéma Drizzle de ce projet reflète exactement les tables partagées ; seules trois colonnes additives avec valeur par défaut ont été ajoutées (`products.unit`, `order_items.unit`, `users.must_change_password`), voir `drizzle/0002_shared_schema_alignment.sql`. `npx drizzle-kit push` doit répondre « No changes detected » : ne jamais utiliser `--force` sans vérifier les instructions générées (`--strict --verbose`).
+- Nouvelle base vide : `npx drizzle-kit push` puis démarrer l’application ; le catalogue de démonstration est créé au premier accès si la base est vide.
 
 ## Déploiement
 

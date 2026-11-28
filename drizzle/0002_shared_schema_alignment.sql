@@ -1,4 +1,4 @@
--- Kasa Trading — alignement sur le schéma partagé (Neon). Idempotent, uniquement additif/compatible.
+-- Kasa Trading — alignement sur le schéma partagé. Idempotent, uniquement additif/compatible.
 ALTER TABLE products    ADD COLUMN IF NOT EXISTS unit varchar(30) NOT NULL DEFAULT '';
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit varchar(30) NOT NULL DEFAULT '';
 ALTER TABLE users       ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
